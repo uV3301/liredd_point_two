@@ -9,13 +9,13 @@ import { useRouter } from "next/router";
 
 const Login: React.FC<{}> = ({}) => {
   const router = useRouter();
-  const [, register] = useLoginMutation();
+  const [, login] = useLoginMutation();
   return (
     <Wrapper variant="small">
       <Formik
         initialValues={{ username: "", password: "" }}
         onSubmit={async (values, { setErrors }) => {
-          const res = await register(values);
+          const res = await login(values);
           console.log(res.data?.login);
           if (res.data?.login.error) {
             setErrors(toErrorMap(res.data.login.error));
@@ -48,7 +48,7 @@ const Login: React.FC<{}> = ({}) => {
               colorScheme="teal"
               isLoading={isSubmitting}
             >
-              Register
+              Login
             </Button>
           </Form>
         )}

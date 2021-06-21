@@ -28,6 +28,7 @@ exports.UserResolver = void 0;
 const User_1 = require("../entities/User");
 const type_graphql_1 = require("type-graphql");
 const argon2_1 = __importDefault(require("argon2"));
+const constants_1 = require("../constants");
 let UsernamePasswordInput = class UsernamePasswordInput {
 };
 __decorate([
@@ -140,16 +141,24 @@ let UserResolver = class UserResolver {
             const valid = yield argon2_1.default.verify(user.password, options.password);
             if (!valid) {
                 return {
-                    error: [
-                        {
-                            field: "password",
-                            message: "incorrect input password",
-                        },
-                    ],
+                    error: [{ field: "password", message: "incorrect input password" }],
                 };
             }
             req.session.userId = user.id;
             return { user };
+        });
+    }
+    logout({ req, res }) {
+        return new Promise((resolve) => {
+            req.session.destroy((err) => {
+                res.clearCookie(constants_1.COOKIE_NAME);
+                if (err) {
+                    console.error(err);
+                    resolve(false);
+                    return;
+                }
+                resolve(true);
+            });
         });
     }
 };
@@ -176,6 +185,13 @@ __decorate([
     __metadata("design:paramtypes", [UsernamePasswordInput, Object]),
     __metadata("design:returntype", Promise)
 ], UserResolver.prototype, "login", null);
+__decorate([
+    type_graphql_1.Mutation(() => Boolean),
+    __param(0, type_graphql_1.Ctx()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UserResolver.prototype, "logout", null);
 UserResolver = __decorate([
     type_graphql_1.Resolver()
 ], UserResolver);
