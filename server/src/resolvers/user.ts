@@ -4,7 +4,6 @@ import {
   Arg,
   Ctx,
   Field,
-  InputType,
   Mutation,
   ObjectType,
   Query,
@@ -12,14 +11,8 @@ import {
 } from "type-graphql";
 import argon2 from "argon2";
 import { COOKIE_NAME } from "../constants";
-@InputType()
-class UsernamePasswordInput {
-  @Field()
-  username: string;
-
-  @Field()
-  password: string;
-}
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
+import { validateRegister } from "src/utils/validateRegister";
 
 @ObjectType()
 class FieldError {
@@ -41,6 +34,11 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  // @Mutation(() => Boolean)
+  // async forgotPassword(@Arg("email") email: string, @Ctx() { em }: MyContext) {
+  //   // const user = await em.findOne(User, {});
+  //   return true;
+  // }
   @Query(() => User, { nullable: true })
   async me(@Ctx() { em, req }: MyContext) {
     console.log("session: ", req.session);
@@ -56,30 +54,15 @@ export class UserResolver {
     @Arg("options") options: UsernamePasswordInput,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    if (options.username.length <= 3) {
-      return {
-        error: [
-          {
-            field: "username",
-            message: "length should be greater than 3",
-          },
-        ],
-      };
-    }
-    if (options.password.length <= 3) {
-      return {
-        error: [
-          {
-            field: "password",
-            message: "length should be greater than 3",
-          },
-        ],
-      };
+    const errors = validateRegister(options);
+    if (errors) {
+      return { error: errors };
     }
     const hashedPass = await argon2.hash(options.password);
     const user = await em.create(User, {
       username: options.username,
       password: hashedPass,
+      email: options.email,
     });
     try {
       await em.persistAndFlush(user);
@@ -101,22 +84,29 @@ export class UserResolver {
 
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: UsernamePasswordInput,
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(User, { username: options.username });
+    let isEmail = usernameOrEmail.includes("@");
+    const user = await em.findOne(
+      User,
+      isEmail ? { email: usernameOrEmail } : { username: usernameOrEmail }
+    );
 
     if (!user) {
       return {
         error: [
           {
-            field: "username",
-            message: "username couldn't be found",
+            field: isEmail ? "email" : "username",
+            message: isEmail
+              ? "email couldn't be found"
+              : "username couldn't be found",
           },
         ],
       };
     }
-    const valid = await argon2.verify(user.password, options.password);
+    const valid = await argon2.verify(user.password, password);
     if (!valid) {
       return {
         error: [{ field: "password", message: "incorrect input password" }],
