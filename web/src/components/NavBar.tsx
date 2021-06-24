@@ -10,8 +10,6 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
   const [{ data, fetching }] = useMeQuery({ pause: isServer() });
   const [{ fetching: logoutFetching }, logout] = useLogoutMutation();
 
-  console.log("user data: ", data);
-
   let body = null;
 
   if (fetching) {

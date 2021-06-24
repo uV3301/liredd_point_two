@@ -2,14 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateRegister = void 0;
 const validateRegister = (options) => {
-    if (!options.email.includes("@")) {
-        return [
-            {
-                field: "email",
-                message: "invalid email",
-            },
-        ];
-    }
     if (options.username.length <= 3) {
         return [
             {
@@ -23,6 +15,14 @@ const validateRegister = (options) => {
             {
                 field: "username",
                 message: "cannot contain '@'",
+            },
+        ];
+    }
+    if (!options.email.includes("@")) {
+        return [
+            {
+                field: "email",
+                message: "invalid email",
             },
         ];
     }
