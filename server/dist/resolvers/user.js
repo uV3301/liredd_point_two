@@ -33,6 +33,7 @@ const UsernamePasswordInput_1 = require("./UsernamePasswordInput");
 const validateRegister_1 = require("../utils/validateRegister");
 const sendEmail_1 = require("../utils/sendEmail");
 const uuid_1 = require("uuid");
+const typeorm_1 = require("typeorm");
 let FieldError = class FieldError {
 };
 __decorate([
@@ -60,7 +61,7 @@ UserResponse = __decorate([
     type_graphql_1.ObjectType()
 ], UserResponse);
 let UserResolver = class UserResolver {
-    changePassword(newPassword, token, { em, redis, req }) {
+    changePassword(newPassword, token, { redis, req }) {
         return __awaiter(this, void 0, void 0, function* () {
             if (newPassword.length <= 3) {
                 return {
@@ -84,7 +85,8 @@ let UserResolver = class UserResolver {
                     ],
                 };
             }
-            const user = yield em.findOne(User_1.User, { id: parseInt(userId) });
+            const user_Id = parseInt(userId);
+            const user = yield User_1.User.findOne(user_Id);
             if (!user) {
                 return {
                     error: [
@@ -95,16 +97,15 @@ let UserResolver = class UserResolver {
                     ],
                 };
             }
-            user.password = yield argon2_1.default.hash(newPassword);
-            em.persistAndFlush(user);
+            yield User_1.User.update({ id: user_Id }, { password: yield argon2_1.default.hash(newPassword) });
             redis.del(key);
             req.session.userId = user.id;
             return { user };
         });
     }
-    forgotPassword(email, { em, redis }) {
+    forgotPassword(email, { redis }) {
         return __awaiter(this, void 0, void 0, function* () {
-            const user = yield em.findOne(User_1.User, { email });
+            const user = yield User_1.User.findOne({ where: { email } });
             if (!user) {
                 return true;
             }
@@ -114,30 +115,39 @@ let UserResolver = class UserResolver {
             return true;
         });
     }
-    me({ em, req }) {
+    me({ req }) {
         return __awaiter(this, void 0, void 0, function* () {
             console.log("session: ", req.session);
             if (!req.session.userId) {
                 return null;
             }
-            const user = yield em.findOne(User_1.User, { id: req.session.userId });
+            const user = yield User_1.User.findOne(req.session.userId);
             return user;
         });
     }
-    register(options, { em, req }) {
+    register(options, { req }) {
         return __awaiter(this, void 0, void 0, function* () {
             const errors = validateRegister_1.validateRegister(options);
             if (errors) {
                 return { error: errors };
             }
             const hashedPass = yield argon2_1.default.hash(options.password);
-            const user = yield em.create(User_1.User, {
-                username: options.username,
-                password: hashedPass,
-                email: options.email,
-            });
+            let user;
             try {
-                yield em.persistAndFlush(user);
+                const result = yield typeorm_1.getConnection()
+                    .createQueryBuilder()
+                    .insert()
+                    .into(User_1.User)
+                    .values([
+                    {
+                        username: options.username,
+                        email: options.email,
+                        password: hashedPass,
+                    },
+                ])
+                    .returning("*")
+                    .execute();
+                user = result.raw[0];
             }
             catch (err) {
                 if (err.code === "23505" || err.detail.includes("already exists")) {
@@ -155,10 +165,12 @@ let UserResolver = class UserResolver {
             return { user };
         });
     }
-    login(usernameOrEmail, password, { em, req }) {
+    login(usernameOrEmail, password, { req }) {
         return __awaiter(this, void 0, void 0, function* () {
             let isEmail = usernameOrEmail.includes("@");
-            const user = yield em.findOne(User_1.User, isEmail ? { email: usernameOrEmail } : { username: usernameOrEmail });
+            const user = yield User_1.User.findOne(isEmail
+                ? { where: { email: usernameOrEmail } }
+                : { where: { username: usernameOrEmail } });
             if (!user) {
                 return {
                     error: [
