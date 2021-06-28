@@ -125,6 +125,12 @@ export class UserResolver {
     const user = await User.findOne(req.session.userId);
     return user;
   }
+
+  @Query(() => [User], { nullable: true })
+  async usersList(): Promise<User[] | null> {
+    const users = await User.find({});
+    return users;
+  }
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,

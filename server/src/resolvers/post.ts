@@ -6,6 +6,7 @@ import {
   InputType,
   Int,
   Mutation,
+  ObjectType,
   Query,
   Resolver,
   Root,
@@ -25,29 +26,43 @@ class PostInput {
   text!: string;
 }
 
-Resolver();
-export class PostResolver {
-  // @FieldResolver(() => String)
-  // textSnippet(@Root() post: Post) {
-  //   return post.text.slice(0, 100);
-  // }
+@ObjectType()
+class PostsObject {
+  @Field(() => [Post])
+  posts: Post[];
 
-  @Query(() => [Post])
-  posts(
+  @Field(() => Boolean)
+  hasMore: boolean;
+}
+
+@Resolver(Post)
+export class PostResolver {
+  @FieldResolver(() => String)
+  textSnippet(@Root() post: Post) {
+    return post.text.slice(0, 100);
+  }
+
+  @Query(() => PostsObject)
+  async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null
-  ): Promise<Post[]> {
+  ): Promise<PostsObject> {
     const realLimit = Math.min(limit, 50);
+    const realLimitOneMore = realLimit + 1;
 
     const qb = getConnection()
       .getRepository(Post)
       .createQueryBuilder("p")
       .orderBy('"createdAt"', "DESC")
-      .take(realLimit);
+      .take(realLimitOneMore);
     if (cursor) {
       qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
     }
-    return qb.getMany();
+    const posts = await qb.getMany();
+    return {
+      posts: posts.slice(0, realLimit),
+      hasMore: posts.length === realLimitOneMore,
+    };
   }
 
   @Query(() => Post, { nullable: true })

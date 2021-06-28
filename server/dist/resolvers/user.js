@@ -11,15 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -61,137 +52,131 @@ UserResponse = __decorate([
     type_graphql_1.ObjectType()
 ], UserResponse);
 let UserResolver = class UserResolver {
-    changePassword(newPassword, token, { redis, req }) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (newPassword.length <= 3) {
-                return {
-                    error: [
-                        {
-                            field: "newPassword",
-                            message: "length should be greater than 3",
-                        },
-                    ],
-                };
-            }
-            const key = constants_1.FORGET_PASSWORD_PREFIX + token;
-            const userId = yield redis.get(key);
-            if (!userId) {
-                return {
-                    error: [
-                        {
-                            field: "token",
-                            message: "token expired",
-                        },
-                    ],
-                };
-            }
-            const user_Id = parseInt(userId);
-            const user = yield User_1.User.findOne(user_Id);
-            if (!user) {
-                return {
-                    error: [
-                        {
-                            field: "token",
-                            message: "user no longer exist",
-                        },
-                    ],
-                };
-            }
-            yield User_1.User.update({ id: user_Id }, { password: yield argon2_1.default.hash(newPassword) });
-            redis.del(key);
-            req.session.userId = user.id;
-            return { user };
-        });
-    }
-    forgotPassword(email, { redis }) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const user = yield User_1.User.findOne({ where: { email } });
-            if (!user) {
-                return true;
-            }
-            const token = uuid_1.v4();
-            yield redis.set(constants_1.FORGET_PASSWORD_PREFIX + token, user.id, "ex", 1000 * 60 * 60 * 24 * 3);
-            sendEmail_1.sendMail(email, `<a href="http://localhost:3000/change-password/${token}">reset password</a>`);
-            return true;
-        });
-    }
-    me({ req }) {
-        return __awaiter(this, void 0, void 0, function* () {
-            console.log("session: ", req.session);
-            if (!req.session.userId) {
-                return null;
-            }
-            const user = yield User_1.User.findOne(req.session.userId);
-            return user;
-        });
-    }
-    register(options, { req }) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const errors = validateRegister_1.validateRegister(options);
-            if (errors) {
-                return { error: errors };
-            }
-            const hashedPass = yield argon2_1.default.hash(options.password);
-            let user;
-            try {
-                const result = yield typeorm_1.getConnection()
-                    .createQueryBuilder()
-                    .insert()
-                    .into(User_1.User)
-                    .values([
+    async changePassword(newPassword, token, { redis, req }) {
+        if (newPassword.length <= 3) {
+            return {
+                error: [
                     {
-                        username: options.username,
-                        email: options.email,
-                        password: hashedPass,
+                        field: "newPassword",
+                        message: "length should be greater than 3",
                     },
-                ])
-                    .returning("*")
-                    .execute();
-                user = result.raw[0];
-            }
-            catch (err) {
-                if (err.code === "23505" || err.detail.includes("already exists")) {
-                    return {
-                        error: [
-                            {
-                                field: "username",
-                                message: "username already exists",
-                            },
-                        ],
-                    };
-                }
-            }
-            req.session.userId = user.id;
-            return { user };
-        });
+                ],
+            };
+        }
+        const key = constants_1.FORGET_PASSWORD_PREFIX + token;
+        const userId = await redis.get(key);
+        if (!userId) {
+            return {
+                error: [
+                    {
+                        field: "token",
+                        message: "token expired",
+                    },
+                ],
+            };
+        }
+        const user_Id = parseInt(userId);
+        const user = await User_1.User.findOne(user_Id);
+        if (!user) {
+            return {
+                error: [
+                    {
+                        field: "token",
+                        message: "user no longer exist",
+                    },
+                ],
+            };
+        }
+        await User_1.User.update({ id: user_Id }, { password: await argon2_1.default.hash(newPassword) });
+        redis.del(key);
+        req.session.userId = user.id;
+        return { user };
     }
-    login(usernameOrEmail, password, { req }) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let isEmail = usernameOrEmail.includes("@");
-            const user = yield User_1.User.findOne(isEmail
-                ? { where: { email: usernameOrEmail } }
-                : { where: { username: usernameOrEmail } });
-            if (!user) {
+    async forgotPassword(email, { redis }) {
+        const user = await User_1.User.findOne({ where: { email } });
+        if (!user) {
+            return true;
+        }
+        const token = uuid_1.v4();
+        await redis.set(constants_1.FORGET_PASSWORD_PREFIX + token, user.id, "ex", 1000 * 60 * 60 * 24 * 3);
+        sendEmail_1.sendMail(email, `<a href="http://localhost:3000/change-password/${token}">reset password</a>`);
+        return true;
+    }
+    async me({ req }) {
+        console.log("session: ", req.session);
+        if (!req.session.userId) {
+            return null;
+        }
+        const user = await User_1.User.findOne(req.session.userId);
+        return user;
+    }
+    async usersList() {
+        const users = await User_1.User.find({});
+        return users;
+    }
+    async register(options, { req }) {
+        const errors = validateRegister_1.validateRegister(options);
+        if (errors) {
+            return { error: errors };
+        }
+        const hashedPass = await argon2_1.default.hash(options.password);
+        let user;
+        try {
+            const result = await typeorm_1.getConnection()
+                .createQueryBuilder()
+                .insert()
+                .into(User_1.User)
+                .values([
+                {
+                    username: options.username,
+                    email: options.email,
+                    password: hashedPass,
+                },
+            ])
+                .returning("*")
+                .execute();
+            user = result.raw[0];
+        }
+        catch (err) {
+            if (err.code === "23505" || err.detail.includes("already exists")) {
                 return {
                     error: [
                         {
-                            field: "usernameOrEmail",
-                            message: isEmail
-                                ? "email couldn't be found"
-                                : "username couldn't be found",
+                            field: "username",
+                            message: "username already exists",
                         },
                     ],
                 };
             }
-            const valid = yield argon2_1.default.verify(user.password, password);
-            if (!valid) {
-                return {
-                    error: [{ field: "password", message: "incorrect input password" }],
-                };
-            }
-            req.session.userId = user.id;
-            return { user };
-        });
+        }
+        req.session.userId = user.id;
+        return { user };
+    }
+    async login(usernameOrEmail, password, { req }) {
+        let isEmail = usernameOrEmail.includes("@");
+        const user = await User_1.User.findOne(isEmail
+            ? { where: { email: usernameOrEmail } }
+            : { where: { username: usernameOrEmail } });
+        if (!user) {
+            return {
+                error: [
+                    {
+                        field: "usernameOrEmail",
+                        message: isEmail
+                            ? "email couldn't be found"
+                            : "username couldn't be found",
+                    },
+                ],
+            };
+        }
+        const valid = await argon2_1.default.verify(user.password, password);
+        if (!valid) {
+            return {
+                error: [{ field: "password", message: "incorrect input password" }],
+            };
+        }
+        req.session.userId = user.id;
+        return { user };
     }
     logout({ req, res }) {
         return new Promise((resolve) => {
@@ -231,6 +216,12 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], UserResolver.prototype, "me", null);
+__decorate([
+    type_graphql_1.Query(() => [User_1.User], { nullable: true }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], UserResolver.prototype, "usersList", null);
 __decorate([
     type_graphql_1.Mutation(() => UserResponse),
     __param(0, type_graphql_1.Arg("options")),
