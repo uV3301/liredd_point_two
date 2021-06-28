@@ -16,7 +16,7 @@ import NextLink from "next/link";
 
 const Index = () => {
   const [variables, setVariables] = useState({
-    limit: 30,
+    limit: 15,
     cursor: null as null | string,
   });
   const [{ data, fetching }] = usePostsQuery({
@@ -41,7 +41,13 @@ const Index = () => {
           j
           {data!.posts.posts.map((p) => (
             <Box key={p.id} p={5} shadow="md" borderWidth="1px">
-              <Heading fontSize="xl">{p.title}</Heading>
+              <Flex align="center">
+                <Heading fontSize="xl">{p.title}</Heading>
+                <Text ml="auto" color="red">
+                  {p.points} Upvotes
+                </Text>
+              </Flex>
+              <Text>posted by {p.creator.username}</Text>
               <Text mt={4}>{p.text.slice(0, 200)}</Text>
             </Box>
           ))}

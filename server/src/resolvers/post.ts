@@ -1,3 +1,4 @@
+import { Updoot } from "../entities/Updoot";
 import {
   Arg,
   Ctx,
@@ -42,6 +43,38 @@ export class PostResolver {
     return post.text.slice(0, 100);
   }
 
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async vote(
+    @Arg("postId", () => Int) postId: number,
+    @Arg("value", () => Int) value: number,
+    @Ctx() { req }: MyContext
+  ) {
+    const userId = req.session.userId;
+    const updoot = value !== -1;
+    const realVal = updoot ? 1 : -1;
+    // await Updoot.insert({
+    //   userId,
+    //   postId,
+    //   value: realVal,
+    // });
+    await getConnection().query(
+      `
+      START TRANSACTION;
+
+      insert into updoot ("userId", "postId", "value")
+      values (${userId}, ${postId}, ${realVal});
+
+      update post
+      set points = points+ ${realVal}
+      where id = ${postId};
+
+      COMMIT;
+     `
+    );
+    return true;
+  }
+
   @Query(() => PostsObject)
   async posts(
     @Arg("limit", () => Int) limit: number,
@@ -50,15 +83,41 @@ export class PostResolver {
     const realLimit = Math.min(limit, 50);
     const realLimitOneMore = realLimit + 1;
 
-    const qb = getConnection()
-      .getRepository(Post)
-      .createQueryBuilder("p")
-      .orderBy('"createdAt"', "DESC")
-      .take(realLimitOneMore);
+    const replacements: any = [realLimitOneMore];
     if (cursor) {
-      qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
+      replacements.push(new Date(parseInt(cursor)));
     }
-    const posts = await qb.getMany();
+
+    const posts = await getConnection().query(
+      `
+      select p.*, 
+      json_build_object(
+        'username', u.username,
+        'id', u.id,
+        'email', u.email,
+        'createdAt', u."createdAt"
+        ) creator
+      from post p
+      inner join "user" u on u.id = p."creatorId"
+      ${cursor ? `where p."createdAt" < $2` : ""}
+      order by p."createdAt" DESC
+      limit $1
+      `,
+      replacements
+    );
+
+    // const qb = getConnection()
+    //   .getRepository(Post)
+    //   .createQueryBuilder("p")
+    //   .innerJoinAndSelect("p.creator", "u", 'u.id = p."creatorId"')
+    //   .orderBy('p."createdAt"', "DESC")
+    //   .take(realLimitOneMore);
+    // if (cursor) {
+    //   qb.where('p."createdAt" < :cursor', {
+    //     cursor: new Date(parseInt(cursor)),
+    //   });
+    // }
+    // const posts = await qb.getMany();
     return {
       posts: posts.slice(0, realLimit),
       hasMore: posts.length === realLimitOneMore,

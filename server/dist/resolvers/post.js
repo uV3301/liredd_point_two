@@ -47,18 +47,45 @@ let PostResolver = class PostResolver {
     textSnippet(post) {
         return post.text.slice(0, 100);
     }
+    async vote(postId, value, { req }) {
+        const userId = req.session.userId;
+        const updoot = value !== -1;
+        const realVal = updoot ? 1 : -1;
+        await typeorm_1.getConnection().query(`
+      START TRANSACTION;
+
+      insert into updoot ("userId", "postId", "value")
+      values (${userId}, ${postId}, ${realVal});
+
+      update post
+      set points = points+ ${realVal}
+      where id = ${postId};
+
+      COMMIT;
+     `);
+        return true;
+    }
     async posts(limit, cursor) {
         const realLimit = Math.min(limit, 50);
         const realLimitOneMore = realLimit + 1;
-        const qb = typeorm_1.getConnection()
-            .getRepository(Post_1.Post)
-            .createQueryBuilder("p")
-            .orderBy('"createdAt"', "DESC")
-            .take(realLimitOneMore);
+        const replacements = [realLimitOneMore];
         if (cursor) {
-            qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
+            replacements.push(new Date(parseInt(cursor)));
         }
-        const posts = await qb.getMany();
+        const posts = await typeorm_1.getConnection().query(`
+      select p.*, 
+      json_build_object(
+        'username', u.username,
+        'id', u.id,
+        'email', u.email,
+        'createdAt', u."createdAt"
+        ) creator
+      from post p
+      inner join "user" u on u.id = p."creatorId"
+      ${cursor ? `where p."createdAt" < $2` : ""}
+      order by p."createdAt" DESC
+      limit $1
+      `, replacements);
         return {
             posts: posts.slice(0, realLimit),
             hasMore: posts.length === realLimitOneMore,
@@ -95,6 +122,16 @@ __decorate([
     __metadata("design:paramtypes", [Post_1.Post]),
     __metadata("design:returntype", void 0)
 ], PostResolver.prototype, "textSnippet", null);
+__decorate([
+    type_graphql_1.Mutation(() => Boolean),
+    type_graphql_1.UseMiddleware(isAuth_1.isAuth),
+    __param(0, type_graphql_1.Arg("postId", () => type_graphql_1.Int)),
+    __param(1, type_graphql_1.Arg("value", () => type_graphql_1.Int)),
+    __param(2, type_graphql_1.Ctx()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number, Object]),
+    __metadata("design:returntype", Promise)
+], PostResolver.prototype, "vote", null);
 __decorate([
     type_graphql_1.Query(() => PostsObject),
     __param(0, type_graphql_1.Arg("limit", () => type_graphql_1.Int)),
