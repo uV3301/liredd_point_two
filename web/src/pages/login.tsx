@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { withUrqlClient } from "next-urql";
 import { createUrlClient } from "../Utilities/createUrqlClient";
 import NextLink from "next/link";
+import { query } from "@urql/exchange-graphcache";
 
 const Login: React.FC<{}> = ({}) => {
   const router = useRouter();
@@ -25,7 +26,11 @@ const Login: React.FC<{}> = ({}) => {
           } else if (res.data?.login.user) {
             // register complete
             //   navigate to home page
-            router.push("/");
+            if (typeof router.query.next === "string") {
+              router.push(router.query.next);
+            } else {
+              router.push("/");
+            }
           }
         }}
       >
