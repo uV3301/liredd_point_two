@@ -1,6 +1,6 @@
 # liredd_point_two
 
-﻿## Reddit Clone with RGT
+﻿ ## Reddit Clone with RGT
 + Certain things to be already installed before starting
 1. NPM package manager
 2. Yarn package manager
@@ -32,7 +32,7 @@ yarn dev
 </br>
 </br>
 -----
-## FAQs
+##FAQs
 ---
 
 <br>
