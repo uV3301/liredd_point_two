@@ -33,7 +33,7 @@ yarn dev
 </br>
 
 ----
-# FAQs
+### FAQs
 ----
 
 <br>
