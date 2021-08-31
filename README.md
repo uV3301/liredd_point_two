@@ -31,9 +31,10 @@ yarn dev
 
 </br>
 </br>
--------
-### FAQs
--------
+
+----
+# FAQs
+----
 
 <br>
 Feel feel to contribute with 🤍
