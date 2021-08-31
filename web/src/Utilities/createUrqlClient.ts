@@ -140,7 +140,7 @@ export const createUrlClient = (ssrExchange: any) => ({
               (info) => info.fieldName === "posts"
             );
             fieldInfos.forEach((fi) => {
-              cache.invalidate("Query", "posts", fi.arguments);
+              cache.invalidate("Query", "posts", fi.arguments || {});
             });
           },
           logout: (_result, args, cache, info) => {

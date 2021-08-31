@@ -1,4 +1,3 @@
-import { Updoot } from "../entities/Updoot";
 import {
   Arg,
   Ctx,
